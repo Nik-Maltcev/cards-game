@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CARD_H, CARD_W } from '../ui/CardView';
 import { ROOMS } from '../meta/rooms';
+import { setLoadingProgress } from '../ui/LoadingScreen';
 
 const SS = 2;
 
@@ -11,6 +12,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    setLoadingProgress(0, 'Loading room artwork…');
+    this.load.on('progress', (progress: number) => setLoadingProgress(progress, 'Loading room artwork…'));
     for (const name of [
       'bg-landscape', 'bg-portrait', 'rug-a', 'sofa-a', 'table-a', 'table-b',
       'lamp-a', 'lamp-b', 'plant-a', 'plant-b', 'paint-a', 'paint-b',
@@ -28,6 +31,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    setLoadingProgress(1, 'Preparing your table…');
     this.cardFace();
     this.cardBack();
     this.cardShadow();

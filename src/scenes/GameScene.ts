@@ -20,6 +20,7 @@ import { profile, session } from '../app';
 import { ECONOMY, comboMultiplier, winReward } from '../meta/economy';
 import { ads, adsEnabled } from '../platform/AdProvider';
 import { t } from '../i18n';
+import { finishLoading } from '../ui/LoadingScreen';
 
 const CARD_RATIO = CARD_H / CARD_W;
 
@@ -325,13 +326,15 @@ export class GameScene extends Phaser.Scene {
         this.gameplayActive = true;
         ads().gameplayStart();
       }
-      if (!this.loadedOnce) {
+      const firstDeal = !this.loadedOnce;
+      if (firstDeal) {
         this.loadedOnce = true;
         ads().loadingFinished();
       }
       ads().track('round_start', { mode: drawCount, seed: this.state.seed });
       this.layout();
       this.updateHud();
+      if (firstDeal) this.game.events.once('postrender', finishLoading);
     });
   }
 
