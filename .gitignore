@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vercel/
+.frames/
+marketing/
+*.zip
+.env.local
+.env.*.local
+*.log

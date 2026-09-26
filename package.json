@@ -1,0 +1,25 @@
+{
+  "name": "cozy-solitaire",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:crazygames": "vite --mode crazygames",
+    "build": "vite build",
+    "build:crazygames": "vite build --mode crazygames",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/core.test.ts tests/meta.test.ts tests/data.test.ts",
+    "test:solver": "tsx src/core/smoke.ts"
+  },
+  "dependencies": {
+    "phaser": "^3.87.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  }
+}
