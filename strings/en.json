@@ -4,7 +4,6 @@
   "game.new": "NEW",
   "game.home": "HOME",
   "game.dealing": "Dealing…",
-  "game.tip": "Tap the deck to draw cards.\nStack red on black, high to low.\nBuild all four suits from Ace to King.\n{hints} free hints · {undos} free undos per deal.\nTap ? for full rules.",
   "game.movesTime": "Moves {moves}   Time {time}",
   "game.coins": "{coins}",
   "how.button": "HOW?",

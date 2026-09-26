@@ -55,13 +55,9 @@ export class GameScene extends Phaser.Scene {
   private felt!: Phaser.GameObjects.Graphics;
   private hudText!: Phaser.GameObjects.Text;
   private tableMark!: Phaser.GameObjects.Text;
-  private introBg!: Phaser.GameObjects.Graphics;
-  private introTitle!: Phaser.GameObjects.Text;
-  private tableTip!: Phaser.GameObjects.Text;
   private helpButton!: HudButton;
   private helpOverlay: Phaser.GameObjects.GameObject[] = [];
   private helpOpen = false;
-  private hasPlayed = false;
   private hudButtons: HudButton[] = [];
   private hudObjects = new Set<Phaser.GameObjects.GameObject>();
   private overlay: Phaser.GameObjects.GameObject[] = [];
@@ -112,18 +108,6 @@ export class GameScene extends Phaser.Scene {
         color: '#e4d2aa', align: 'center', lineSpacing: -5,
       })
       .setOrigin(0.5).setAlpha(0.11).setDepth(0.5);
-    this.introBg = this.add.graphics().setDepth(0.6);
-    this.introTitle = this.add
-      .text(0, 0, t('how.title'), {
-        fontFamily: 'Arial, sans-serif', fontSize: '18px', fontStyle: 'bold', color: '#ffd27f',
-      })
-      .setOrigin(0.5).setDepth(0.7);
-    this.tableTip = this.add
-      .text(0, 0, t('game.tip', { hints: ECONOMY.hintFree, undos: ECONOMY.undoFree }), {
-        fontFamily: 'Arial, sans-serif', fontSize: '14px', lineSpacing: 5,
-        color: '#e8d9b7', align: 'center',
-      })
-      .setOrigin(0.5).setDepth(0.7);
     for (let i = 0; i < 6; i++) this.slots.push(this.add.image(0, 0, 'slot').setDepth(1));
     for (const card of fullDeck()) {
       const v = new CardView(this, card);
@@ -220,17 +204,6 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0xc5a978, 0.45).lineBetween(25, hudTop + 1, W - 25, hudTop + 1);
     this.tableMark.setPosition(W / 2, Math.min(hudTop - 62, this.m.tabTop + this.m.ch * 2.65))
       .setFontSize(Phaser.Math.Clamp(Math.round(W * 0.06), 24, 42));
-    const introW = Math.min(390, W - 36);
-    const introH = W < 430 ? 185 : 170;
-    const introY = Math.round((this.m.tabTop + this.m.ch + hudTop) / 2);
-    this.introBg.clear();
-    this.introBg.fillStyle(0x19382e, 0.92).fillRoundedRect(W / 2 - introW / 2, introY - introH / 2, introW, introH, 13);
-    this.introBg.lineStyle(1.5, 0xd7bb81, 0.76).strokeRoundedRect(W / 2 - introW / 2, introY - introH / 2, introW, introH, 13);
-    this.introTitle.setPosition(W / 2, introY - introH / 2 + 27).setFontSize(W < 430 ? 15 : 18);
-    this.tableTip.setPosition(W / 2, introY + 14)
-      .setFontSize(W < 430 ? 12 : 14)
-      .setWordWrapWidth(introW - 28);
-    this.setIntroVisible(!this.hasPlayed);
     this.helpButton.bg.setPosition(this.colX(2), this.m.topY)
       .setDisplaySize(Math.max(34, Math.min(75, cw * 0.7)), Math.max(34, Math.min(44, ch * 0.38)));
     this.helpButton.label.setPosition(this.colX(2), this.m.topY)
@@ -240,12 +213,6 @@ export class GameScene extends Phaser.Scene {
     this.slots[1].setPosition(this.colX(1), this.m.topY).setDisplaySize(cw, ch);
     for (let i = 0; i < 4; i++) this.slots[2 + i].setPosition(this.colX(3 + i), this.m.topY).setDisplaySize(cw, ch);
     for (const v of this.views.values()) v.setScale(scale);
-  }
-
-  private setIntroVisible(visible: boolean): void {
-    this.introBg.setVisible(visible);
-    this.introTitle.setVisible(visible);
-    this.tableTip.setVisible(visible);
   }
 
   private fanSteps(): { down: number; up: number } {
@@ -365,13 +332,10 @@ export class GameScene extends Phaser.Scene {
       ads().track('round_start', { mode: drawCount, seed: this.state.seed });
       this.layout();
       this.updateHud();
-      this.setIntroVisible(!this.hasPlayed);
     });
   }
 
   private afterMove(): void {
-    this.hasPlayed = true;
-    this.setIntroVisible(false);
     this.clearSelection();
     this.layout();
     this.updateHud();
