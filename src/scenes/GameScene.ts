@@ -55,7 +55,12 @@ export class GameScene extends Phaser.Scene {
   private felt!: Phaser.GameObjects.Graphics;
   private hudText!: Phaser.GameObjects.Text;
   private tableMark!: Phaser.GameObjects.Text;
+  private introBg!: Phaser.GameObjects.Graphics;
+  private introTitle!: Phaser.GameObjects.Text;
   private tableTip!: Phaser.GameObjects.Text;
+  private helpButton!: HudButton;
+  private helpOverlay: Phaser.GameObjects.GameObject[] = [];
+  private helpOpen = false;
   private hasPlayed = false;
   private hudButtons: HudButton[] = [];
   private hudObjects = new Set<Phaser.GameObjects.GameObject>();
@@ -90,6 +95,8 @@ export class GameScene extends Phaser.Scene {
     this.hudButtons = [];
     this.hudObjects = new Set();
     this.overlay = [];
+    this.helpOverlay = [];
+    this.helpOpen = false;
     this.drag = null;
     this.down = null;
     this.pulse = null;
@@ -105,12 +112,18 @@ export class GameScene extends Phaser.Scene {
         color: '#e4d2aa', align: 'center', lineSpacing: -5,
       })
       .setOrigin(0.5).setAlpha(0.11).setDepth(0.5);
+    this.introBg = this.add.graphics().setDepth(0.6);
+    this.introTitle = this.add
+      .text(0, 0, t('how.title'), {
+        fontFamily: 'Arial, sans-serif', fontSize: '18px', fontStyle: 'bold', color: '#ffd27f',
+      })
+      .setOrigin(0.5).setDepth(0.7);
     this.tableTip = this.add
-      .text(0, 0, t('game.tip'), {
-        fontFamily: 'Arial, sans-serif', fontSize: '14px',
+      .text(0, 0, t('game.tip', { hints: ECONOMY.hintFree, undos: ECONOMY.undoFree }), {
+        fontFamily: 'Arial, sans-serif', fontSize: '14px', lineSpacing: 5,
         color: '#e8d9b7', align: 'center',
       })
-      .setOrigin(0.5).setAlpha(0.7).setDepth(0.6);
+      .setOrigin(0.5).setDepth(0.7);
     for (let i = 0; i < 6; i++) this.slots.push(this.add.image(0, 0, 'slot').setDepth(1));
     for (const card of fullDeck()) {
       const v = new CardView(this, card);
@@ -139,6 +152,7 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- layout
 
   private onResize(): void {
+    if (this.helpOpen) this.closeHelp();
     this.computeMetrics();
     this.placeStatic();
     this.layoutHud();
@@ -206,12 +220,32 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0xc5a978, 0.45).lineBetween(25, hudTop + 1, W - 25, hudTop + 1);
     this.tableMark.setPosition(W / 2, Math.min(hudTop - 62, this.m.tabTop + this.m.ch * 2.65))
       .setFontSize(Phaser.Math.Clamp(Math.round(W * 0.06), 24, 42));
-    this.tableTip.setPosition(W / 2, Math.min(hudTop - 23, this.tableMark.y + 55))
-      .setWordWrapWidth(Math.max(220, W - 50)).setVisible(!this.hasPlayed);
+    const introW = Math.min(390, W - 36);
+    const introH = W < 430 ? 185 : 170;
+    const introY = Math.round((this.m.tabTop + this.m.ch + hudTop) / 2);
+    this.introBg.clear();
+    this.introBg.fillStyle(0x19382e, 0.92).fillRoundedRect(W / 2 - introW / 2, introY - introH / 2, introW, introH, 13);
+    this.introBg.lineStyle(1.5, 0xd7bb81, 0.76).strokeRoundedRect(W / 2 - introW / 2, introY - introH / 2, introW, introH, 13);
+    this.introTitle.setPosition(W / 2, introY - introH / 2 + 27).setFontSize(W < 430 ? 15 : 18);
+    this.tableTip.setPosition(W / 2, introY + 14)
+      .setFontSize(W < 430 ? 12 : 14)
+      .setWordWrapWidth(introW - 28);
+    this.setIntroVisible(!this.hasPlayed);
+    this.helpButton.bg.setPosition(this.colX(2), this.m.topY)
+      .setDisplaySize(Math.max(34, Math.min(75, cw * 0.7)), Math.max(34, Math.min(44, ch * 0.38)));
+    this.helpButton.label.setPosition(this.colX(2), this.m.topY)
+      .setText(W < 430 ? '?' : t('how.button'))
+      .setFontSize(W < 430 ? 19 : 13);
     this.slots[0].setPosition(this.colX(0), this.m.topY).setDisplaySize(cw, ch);
     this.slots[1].setPosition(this.colX(1), this.m.topY).setDisplaySize(cw, ch);
     for (let i = 0; i < 4; i++) this.slots[2 + i].setPosition(this.colX(3 + i), this.m.topY).setDisplaySize(cw, ch);
     for (const v of this.views.values()) v.setScale(scale);
+  }
+
+  private setIntroVisible(visible: boolean): void {
+    this.introBg.setVisible(visible);
+    this.introTitle.setVisible(visible);
+    this.tableTip.setVisible(visible);
   }
 
   private fanSteps(): { down: number; up: number } {
@@ -331,13 +365,13 @@ export class GameScene extends Phaser.Scene {
       ads().track('round_start', { mode: drawCount, seed: this.state.seed });
       this.layout();
       this.updateHud();
-      this.tableTip.setVisible(!this.hasPlayed);
+      this.setIntroVisible(!this.hasPlayed);
     });
   }
 
   private afterMove(): void {
     this.hasPlayed = true;
-    this.tableTip.setVisible(false);
+    this.setIntroVisible(false);
     this.clearSelection();
     this.layout();
     this.updateHud();
@@ -398,7 +432,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onDown(pointer: Phaser.Input.Pointer): void {
-    if (this.dealing || this.state.won || this.adChoiceOpen || this.tapBlocked) return;
+    if (this.dealing || this.state.won || this.adChoiceOpen || this.helpOpen || this.tapBlocked) return;
     if (this.input.hitTestPointer(pointer).some((o) => this.hudObjects.has(o))) return;
     this.stopPulse();
     const pick = this.pick(pointer.x, pointer.y);
@@ -620,6 +654,65 @@ export class GameScene extends Phaser.Scene {
     mk('draw', t('game.draw1'), () => this.newGame(this.state.drawCount === 1 ? 3 : 1));
     mk('new', t('game.new'), () => this.newGame(this.state.drawCount));
     mk('home', t('game.home'), () => this.goHome());
+
+    const bg = this.add.image(0, 0, 'btn').setDepth(8000).setInteractive({ useHandCursor: true });
+    const label = this.add.text(0, 0, t('how.button'), {
+      fontFamily: 'Arial, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#f3e3c3',
+    }).setOrigin(0.5).setDepth(8001);
+    bg.on('pointerdown', () => {
+      if (!this.dealing && !this.helpOpen) this.openHelp();
+    });
+    bg.on('pointerover', () => bg.setTint(0xcfe6d4));
+    bg.on('pointerout', () => bg.clearTint());
+    this.helpButton = { key: 'help', bg, label };
+    this.hudObjects.add(bg);
+  }
+
+  private openHelp(): void {
+    this.helpOpen = true;
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const compact = W < 430;
+    const pw = Math.min(460, W - 26);
+    const cx = W / 2;
+    const cy = H / 2;
+    let fontSize = compact ? 13 : 15;
+    const body = this.add.text(0, 0, t('how.body', { hints: ECONOMY.hintFree, undos: ECONOMY.undoFree }), {
+      fontFamily: 'Arial, sans-serif', fontSize: `${fontSize}px`,
+      color: '#f3e3c3', lineSpacing: compact ? 4 : 6,
+      wordWrap: { width: pw - 44 },
+    }).setDepth(9402);
+    const maxPh = Math.min(545, H - 24);
+    while (body.height > maxPh - 132 && fontSize > 10) body.setFontSize(--fontSize);
+    const ph = Math.min(maxPh, Math.max(280, body.height + 132));
+    body.setPosition(cx - pw / 2 + 22, cy - ph / 2 + 64);
+    const dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.62)
+      .setOrigin(0).setDepth(9400).setInteractive();
+    const panel = this.add.image(cx, cy, 'panel').setDisplaySize(pw, ph).setDepth(9401).setInteractive();
+    const title = this.add.text(cx, cy - ph / 2 + 30, t('how.title'), {
+      fontFamily: 'Arial, sans-serif', fontSize: compact ? '18px' : '22px',
+      fontStyle: 'bold', color: '#ffd27f',
+    }).setOrigin(0.5).setDepth(9402);
+    const closeBg = this.add.image(cx, cy + ph / 2 - 30, 'btn-primary')
+      .setDisplaySize(Math.min(160, pw - 44), 40).setDepth(9402).setInteractive({ useHandCursor: true });
+    const closeLabel = this.add.text(cx, cy + ph / 2 - 30, t('how.close'), {
+      fontFamily: 'Arial, sans-serif', fontSize: '14px', fontStyle: 'bold', color: '#f3e3c3',
+    }).setOrigin(0.5).setDepth(9403);
+    dim.on('pointerdown', () => this.closeHelp());
+    closeBg.on('pointerdown', () => this.closeHelp());
+    closeBg.on('pointerover', () => closeBg.setTint(0xcfe6d4));
+    closeBg.on('pointerout', () => closeBg.clearTint());
+    this.helpOverlay = [dim, panel, title, body, closeBg, closeLabel];
+  }
+
+  private closeHelp(): void {
+    for (const obj of this.helpOverlay) obj.destroy();
+    this.helpOverlay = [];
+    this.helpOpen = false;
+    this.tapBlocked = true;
+    this.events.once(Phaser.Scenes.Events.POST_UPDATE, () => {
+      this.tapBlocked = false;
+    });
   }
 
   private goHome(): void {
@@ -669,6 +762,7 @@ export class GameScene extends Phaser.Scene {
     session.usedHint++;
     session.cleanDeal = false;
     this.showHint(hint);
+    this.updateHud();
   }
 
   private openAdChoice(kind: 'undo' | 'hint'): void {
@@ -822,6 +916,8 @@ export class GameScene extends Phaser.Scene {
     this.hudText.setText(`✦ ${coins}    ·    ${t('game.movesTime', { moves: this.state.moves, time: `${mm}:${ss}` })}`);
     for (const b of this.hudButtons) {
       if (b.key === 'draw') b.label.setText(this.state.drawCount === 1 ? t('game.draw1') : t('game.draw3'));
+      if (b.key === 'hint') b.label.setText(`${t('game.hint')} ${Math.max(0, ECONOMY.hintFree + session.hintBonus - session.usedHint)}`);
+      if (b.key === 'undo') b.label.setText(`${t('game.undo')} ${session.undoUnlimited ? '∞' : Math.max(0, ECONOMY.undoFree - session.usedUndo)}`);
     }
   }
 
